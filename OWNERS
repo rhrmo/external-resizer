@@ -1,8 +1,2 @@
-# See the OWNERS docs: https://git.k8s.io/community/contributors/guide/owners.md
-
 approvers:
-  - openshift-storage-maintainers
-  - saad-ali
-  - gnufied
-  - mlmhl
-  - msau42
+- openshift-storage-maintainers

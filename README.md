@@ -45,9 +45,13 @@ Note that the external-resizer does not scale with more replicas. Only one exter
 
 * `--leader-election-namespace`: Namespace where the leader election resource lives. Defaults to the pod namespace if not set.
 
-* `---csiTimeout <duration>`: Timeout of all calls to CSI driver. It should be set to value that accommodates majority of `ControllerExpandVolume` calls. 15 seconds is used by default.
+* `--csiTimeout <duration>`: Timeout of all calls to CSI driver. It should be set to value that accommodates majority of `ControllerExpandVolume` calls. 15 seconds is used by default.
 
 * `--workers <num>`: Number of simultaneously running `ControllerExpandVolume` operations. Default value is `10`.
+
+* `--metrics-address`: The TCP network address where the prometheus metrics endpoint will run (example: `:8080` which corresponds to port 8080 on local host). The default is empty string, which means metrics endpoint is disabled.
+
+* `--metrics-path`: The HTTP path where prometheus metrics will be exposed. Default is `/metrics`.
 
 #### Other recognized arguments
 

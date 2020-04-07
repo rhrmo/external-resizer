@@ -16,7 +16,8 @@ This information reflects the head of this branch.
 
 | Compatible with CSI Version                                                                | Container Image                | Recommended K8s Version |
 | ------------------------------------------------------------------------------------------ | -------------------------------| --------------- |
-| [CSI Spec v1.1.0](https://github.com/container-storage-interface/spec/releases/tag/v1.1.0) | quay.io/k8scsi/csi-resizer | 1.16            |
+| [CSI Spec v1.2.0](https://github.com/container-storage-interface/spec/releases/tag/v1.2.0) | quay.io/k8scsi/csi-resizer | 1.16            |
+
 
 
 ## Feature status
@@ -46,6 +47,10 @@ Note that the external-resizer does not scale with more replicas. Only one exter
 * `--leader-election-namespace`: Namespace where the leader election resource lives. Defaults to the pod namespace if not set.
 
 * `--csiTimeout <duration>`: Timeout of all calls to CSI driver. It should be set to value that accommodates majority of `ControllerExpandVolume` calls. 15 seconds is used by default.
+
+* `--retry-interval-start`: The starting value of the exponential backoff for failures. 1 second is used by default.
+
+* `--retry-interval-max`: The exponential backoff maximum value. 5 minutes is used by default.
 
 * `--workers <num>`: Number of simultaneously running `ControllerExpandVolume` operations. Default value is `10`.
 

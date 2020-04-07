@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"k8s.io/client-go/util/workqueue"
 	"testing"
 	"time"
 
@@ -21,14 +22,17 @@ import (
 )
 
 func TestController(t *testing.T) {
+	blockVolumeMode := v1.PersistentVolumeBlock
+	fsVolumeMode := v1.PersistentVolumeFilesystem
 	for _, test := range []struct {
 		Name string
 		PVC  *v1.PersistentVolumeClaim
 		PV   *v1.PersistentVolume
 
-		CreateObjects bool
-		NodeResize    bool
-		CallCSIExpand bool
+		CreateObjects     bool
+		NodeResize        bool
+		CallCSIExpand     bool
+		expectBlockVolume bool
 	}{
 		{
 			Name:          "Invalid key",
@@ -55,35 +59,44 @@ func TestController(t *testing.T) {
 		{
 			Name:          "pv claimref does not have pvc UID",
 			PVC:           createPVC(2, 1),
-			PV:            createPV(1, "testPVC" /*pvcName*/, "test" /*pvcNamespace*/, "foobaz" /*pvcUID*/),
+			PV:            createPV(1, "testPVC" /*pvcName*/, "test" /*pvcNamespace*/, "foobaz" /*pvcUID*/, &fsVolumeMode),
 			CallCSIExpand: false,
 		},
 		{
 			Name:          "pv claimref does not have PVC namespace",
 			PVC:           createPVC(2, 1),
-			PV:            createPV(1, "testPVC" /*pvcName*/, "test1" /*pvcNamespace*/, "foobar" /*pvcUID*/),
+			PV:            createPV(1, "testPVC" /*pvcName*/, "test1" /*pvcNamespace*/, "foobar" /*pvcUID*/, &fsVolumeMode),
 			CallCSIExpand: false,
 		},
 		{
 			Name:          "pv claimref is nil",
 			PVC:           createPVC(2, 1),
-			PV:            createPV(1, "" /*pvcName*/, "test1" /*pvcNamespace*/, "foobar" /*pvcUID*/),
+			PV:            createPV(1, "" /*pvcName*/, "test1" /*pvcNamespace*/, "foobar" /*pvcUID*/, &fsVolumeMode),
 			CallCSIExpand: false,
 		},
 		{
 			Name:          "Resize PVC, no FS resize",
 			PVC:           createPVC(2, 1),
-			PV:            createPV(1, "testPVC", "test", "foobar"),
+			PV:            createPV(1, "testPVC", "test", "foobar", &fsVolumeMode),
 			CreateObjects: true,
 			CallCSIExpand: true,
 		},
 		{
 			Name:          "Resize PVC with FS resize",
 			PVC:           createPVC(2, 1),
-			PV:            createPV(1, "testPVC", "test", "foobar"),
+			PV:            createPV(1, "testPVC", "test", "foobar", &fsVolumeMode),
 			CreateObjects: true,
 			NodeResize:    true,
 			CallCSIExpand: true,
+		},
+		{
+			Name:              "Block Resize PVC with FS resize",
+			PVC:               createPVC(2, 1),
+			PV:                createPV(1, "testPVC", "test", "foobar", &blockVolumeMode),
+			CreateObjects:     true,
+			NodeResize:        true,
+			CallCSIExpand:     true,
+			expectBlockVolume: true,
 		},
 	} {
 		client := csi.NewMockClient("mock", test.NodeResize, true, true)
@@ -123,7 +136,7 @@ func TestController(t *testing.T) {
 			t.Fatalf("Test %s: Unable to create resizer: %v", test.Name, err)
 		}
 
-		controller := NewResizeController(driverName, csiResizer, kubeClient, time.Second, informerFactory)
+		controller := NewResizeController(driverName, csiResizer, kubeClient, time.Second, informerFactory, workqueue.DefaultControllerRateLimiter())
 		err = controller.(*resizeController).syncPVC(fmt.Sprintf("%s/%s", test.PVC.Namespace, test.PVC.Name))
 		if err != nil {
 			t.Fatalf("Test %s: Unexpected error: %v", test.Name, err)
@@ -136,6 +149,16 @@ func TestController(t *testing.T) {
 
 		if !test.CallCSIExpand && expandCallCount > 0 {
 			t.Fatalf("for %s: expected no csi expand call, received csi expansion request", test.Name)
+		}
+
+		usedCapability := client.GetCapability()
+
+		if test.CallCSIExpand && test.expectBlockVolume && usedCapability.GetBlock() == nil {
+			t.Errorf("For %s: expected block accesstype got: %v", test.Name, usedCapability)
+		}
+
+		if test.CallCSIExpand && !test.expectBlockVolume && usedCapability.GetMount() == nil {
+			t.Errorf("For %s: expected mount accesstype got: %v", test.Name, usedCapability)
 		}
 	}
 }
@@ -180,7 +203,7 @@ func createPVC(requestGB, capacityGB int) *v1.PersistentVolumeClaim {
 	}
 }
 
-func createPV(capacityGB int, pvcName, pvcNamespace string, pvcUID types.UID) *v1.PersistentVolume {
+func createPV(capacityGB int, pvcName, pvcNamespace string, pvcUID types.UID, volumeMode *v1.PersistentVolumeMode) *v1.PersistentVolume {
 	capacity := quantityGB(capacityGB)
 
 	pv := &v1.PersistentVolume{
@@ -188,6 +211,7 @@ func createPV(capacityGB int, pvcName, pvcNamespace string, pvcUID types.UID) *v
 			Name: "testPV",
 		},
 		Spec: v1.PersistentVolumeSpec{
+			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 			Capacity: map[v1.ResourceName]resource.Quantity{
 				v1.ResourceStorage: capacity,
 			},
@@ -197,6 +221,7 @@ func createPV(capacityGB int, pvcName, pvcNamespace string, pvcUID types.UID) *v
 					VolumeHandle: "foo",
 				},
 			},
+			VolumeMode: volumeMode,
 		},
 	}
 	if len(pvcName) > 0 {

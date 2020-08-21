@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -24,36 +25,16 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var knownResizeConditions = map[v1.PersistentVolumeClaimConditionType]bool{
 	v1.PersistentVolumeClaimResizing:                true,
 	v1.PersistentVolumeClaimFileSystemResizePending: true,
-}
-
-// NewK8sClient is an utility function used to create a kubernetes sdk client.
-func NewK8sClient(master, kubeConfig string) (kubernetes.Interface, error) {
-	var config *rest.Config
-	var err error
-	if master != "" || kubeConfig != "" {
-		config, err = clientcmd.BuildConfigFromFlags(master, kubeConfig)
-	} else {
-		config, err = rest.InClusterConfig()
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to create config: %v", err)
-	}
-	kubeClient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %v", err)
-	}
-	return kubeClient, nil
 }
 
 // PVCKey returns an unique key of a PVC object,
@@ -103,7 +84,7 @@ func PatchPVCStatus(
 		return nil, fmt.Errorf("can't patch status of PVC %s as generate path data failed: %v", PVCKey(oldPVC), err)
 	}
 	updatedClaim, updateErr := kubeClient.CoreV1().PersistentVolumeClaims(oldPVC.Namespace).
-		Patch(oldPVC.Name, types.StrategicMergePatchType, patchBytes, "status")
+		Patch(context.TODO(), oldPVC.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{}, "status")
 	if updateErr != nil {
 		return nil, fmt.Errorf("can't patch status of  PVC %s with %v", PVCKey(oldPVC), updateErr)
 	}
@@ -150,7 +131,7 @@ func UpdatePVCapacity(pv *v1.PersistentVolume, newCapacity resource.Quantity, ku
 	if err != nil {
 		return fmt.Errorf("can't update capacity of PV %s as generate path data failed: %v", pv.Name, err)
 	}
-	_, updateErr := kubeClient.CoreV1().PersistentVolumes().Patch(pv.Name, types.StrategicMergePatchType, patchBytes)
+	_, updateErr := kubeClient.CoreV1().PersistentVolumes().Patch(context.TODO(), pv.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 	if updateErr != nil {
 		return fmt.Errorf("update capacity of PV %s failed: %v", pv.Name, updateErr)
 	}
@@ -174,7 +155,7 @@ func getPatchData(oldObj, newObj interface{}) ([]byte, error) {
 }
 
 // HasFileSystemResizePendingCondition returns true if a pvc has a FileSystemResizePending condition.
-// This means the controller side resize operation is finished, and kublete side operation is in progress.
+// This means the controller side resize operation is finished, and kubelet side operation is in progress.
 func HasFileSystemResizePendingCondition(pvc *v1.PersistentVolumeClaim) bool {
 	for _, condition := range pvc.Status.Conditions {
 		if condition.Type == v1.PersistentVolumeClaimFileSystemResizePending && condition.Status == v1.ConditionTrue {

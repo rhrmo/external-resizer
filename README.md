@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.org/kubernetes-csi/external-resizer.svg?branch=master)](https://travis-ci.org/kubernetes-csi/external-resizer)
-
 # CSI Resizer
 
 The CSI `external-resizer` is a sidecar container that watches the Kubernetes API server for `PersistentVolumeClaim` updates and
@@ -16,7 +14,7 @@ This information reflects the head of this branch.
 
 | Compatible with CSI Version | Container Image | [Min K8s Version](https://kubernetes-csi.github.io/docs/kubernetes-compatibility.html#minimum-version) | [Recommended K8s Version](https://kubernetes-csi.github.io/docs/kubernetes-compatibility.html#recommended-version) |
 | ------------------------------------------------------------------------------------------ | -------------------------------| --------------- | ------------- |
-| [CSI Spec v1.2.0](https://github.com/container-storage-interface/spec/releases/tag/v1.2.0) | k8s.gcr.io/sig-storage/csi-provisioner | 1.16 | 1.16 |
+| [CSI Spec v1.2.0](https://github.com/container-storage-interface/spec/releases/tag/v1.2.0) | k8s.gcr.io/sig-storage/csi-resizer | 1.16 | 1.16 |
 
 
 ## Feature status
@@ -62,6 +60,10 @@ Note that the external-resizer does not scale with more replicas. Only one exter
 * `--metrics-path`: The HTTP path where prometheus metrics will be exposed. Default is `/metrics`.
 
 * `--handle-volume-inuse-error <true/false>`: Enable or disable volume-in-use error handling in external-resizer. Defaults to `true` and resize-controller will watch for all pods in all namespaces to check if PVC being expanded is in-use by a pod or not before retrying volume expansion if CSI driver throws volume-in-use error. Setting this to `false` will cause external-resizer to ignore volume-in-use error and resize-controller will retry volume expansion even if volume is already in use by a pod and CSI driver does not support expansion of in-use volumes. If CSI driver being used supports online expansion, it might be desirable to set `handle-volume-inuse-error` to `false` - to save costs associated with watching all pods in the cluster.
+
+* `-feature-gates**: A set of key/value pairs that describe alpha/experimental features of external-resizer.
+  * `AnnotateFsResize=true|false` (ALPHA - default=false): Store current size of pvc in pv's annotation, so as if pvc is deleted while expansion was pending on the node, the size of pvc can be restored to old value. This permits
+    expansion on the node in case pvc was deleted while expansion was pending on the node (but completed in the controller). Use of this feature depends on Kubernetes version 1.21.
 
 #### Other recognized arguments
 

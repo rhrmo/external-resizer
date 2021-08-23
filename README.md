@@ -14,12 +14,18 @@ This information reflects the head of this branch.
 
 | Compatible with CSI Version | Container Image | [Min K8s Version](https://kubernetes-csi.github.io/docs/kubernetes-compatibility.html#minimum-version) | [Recommended K8s Version](https://kubernetes-csi.github.io/docs/kubernetes-compatibility.html#recommended-version) |
 | ------------------------------------------------------------------------------------------ | -------------------------------| --------------- | ------------- |
-| [CSI Spec v1.2.0](https://github.com/container-storage-interface/spec/releases/tag/v1.2.0) | k8s.gcr.io/sig-storage/csi-resizer | 1.16 | 1.16 |
-
+| [CSI Spec v1.5.0](https://github.com/container-storage-interface/spec/releases/tag/v1.5.0) | k8s.gcr.io/sig-storage/csi-resizer | 1.16 | 1.22 |
 
 ## Feature status
 
-Currently all CSI volume expansion features are supported as Beta features by external-resizer.
+Various external-resizer releases come with different alpha / beta features.
+
+The following table reflects the head of this branch.
+
+| Feature           | Status  | Default | Description                                                                                                                   |
+| ----------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| VolumeExpansion   | Beta    | On      | [Support for expanding CSI volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#csi-volume-expansion).    |
+| ReadWriteOncePod  | Alpha   | Off     | [Single pod access mode for PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes). |
 
 ## Usage
 
@@ -42,6 +48,12 @@ Note that the external-resizer does not scale with more replicas. Only one exter
 * `--leader-election`: Enables leader election. This is mandatory when there are multiple replicas of the same external-resizer running for one CSI driver. Only one of them may be active (=leader). A new leader will be re-elected when current leader dies or becomes unresponsive for ~15 seconds.
 
 * `--leader-election-namespace`: Namespace where the leader election resource lives. Defaults to the pod namespace if not set.
+
+* `--leader-election-lease-duration <duration>`: Duration, in seconds, that non-leader candidates will wait to force acquire leadership. Defaults to 15 seconds.
+
+* `--leader-election-renew-deadline <duration>`: Duration, in seconds, that the acting leader will retry refreshing leadership before giving up. Defaults to 10 seconds.
+
+* `--leader-election-retry-period <duration>`: Duration, in seconds, the LeaderElector clients should wait between tries of actions. Defaults to 5 seconds.
 
 * `--timeout <duration>`: Timeout of all calls to CSI driver. It should be set to value that accommodates majority of `ControllerExpandVolume` calls. 10 seconds is used by default.
 

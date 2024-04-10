@@ -207,7 +207,7 @@ func TestController(t *testing.T) {
 			disableVolumeInUseErrorHandler: true,
 		},
 	} {
-		client := csi.NewMockClient("mock", test.NodeResize, true, true, true)
+		client := csi.NewMockClient("mock", test.NodeResize, true, false, true, true)
 		driverName, _ := client.GetDriverName(context.TODO())
 
 		var expectedCap resource.Quantity
@@ -233,7 +233,7 @@ func TestController(t *testing.T) {
 		pvcInformer := informerFactory.Core().V1().PersistentVolumeClaims()
 		podInformer := informerFactory.Core().V1().Pods()
 
-		csiResizer, err := resizer.NewResizerFromClient(client, 15*time.Second, kubeClient, informerFactory, driverName)
+		csiResizer, err := resizer.NewResizerFromClient(client, 15*time.Second, kubeClient, driverName)
 		if err != nil {
 			t.Fatalf("Test %s: Unable to create resizer: %v", test.Name, err)
 		}
@@ -343,7 +343,7 @@ func TestResizePVC(t *testing.T) {
 			expectFailure:    true,
 		},
 	} {
-		client := csi.NewMockClient("mock", test.NodeResize, true, true, true)
+		client := csi.NewMockClient("mock", test.NodeResize, true, false, true, true)
 		if test.expansionFailure {
 			client.SetExpansionFailed()
 		}
@@ -365,7 +365,7 @@ func TestResizePVC(t *testing.T) {
 		pvcInformer := informerFactory.Core().V1().PersistentVolumeClaims()
 		podInformer := informerFactory.Core().V1().Pods()
 
-		csiResizer, err := resizer.NewResizerFromClient(client, 15*time.Second, kubeClient, informerFactory, driverName)
+		csiResizer, err := resizer.NewResizerFromClient(client, 15*time.Second, kubeClient, driverName)
 		if err != nil {
 			t.Fatalf("Test %s: Unable to create resizer: %v", test.Name, err)
 		}
@@ -441,7 +441,7 @@ func createPVC(requestGB, capacityGB int) *v1.PersistentVolumeClaim {
 			UID:       "foobar",
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
-			Resources: v1.ResourceRequirements{
+			Resources: v1.VolumeResourceRequirements{
 				Requests: map[v1.ResourceName]resource.Quantity{
 					v1.ResourceStorage: request,
 				},

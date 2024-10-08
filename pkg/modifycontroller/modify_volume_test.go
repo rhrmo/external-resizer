@@ -10,7 +10,7 @@ import (
 	"github.com/kubernetes-csi/external-resizer/pkg/features"
 	"github.com/kubernetes-csi/external-resizer/pkg/modifier"
 	v1 "k8s.io/api/core/v1"
-	storagev1alpha1 "k8s.io/api/storage/v1alpha1"
+	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -23,13 +23,13 @@ import (
 )
 
 var (
-	testVacObject = &storagev1alpha1.VolumeAttributesClass{
+	testVacObject = &storagev1beta1.VolumeAttributesClass{
 		ObjectMeta: metav1.ObjectMeta{Name: testVac},
 		DriverName: "test-driver",
 		Parameters: map[string]string{"iops": "3000"},
 	}
 
-	targetVacObject = &storagev1alpha1.VolumeAttributesClass{
+	targetVacObject = &storagev1beta1.VolumeAttributesClass{
 		ObjectMeta: metav1.ObjectMeta{Name: targetVac},
 		DriverName: "test-driver",
 		Parameters: map[string]string{"iops": "4567"},
@@ -72,15 +72,12 @@ func TestModify(t *testing.T) {
 			expectedPVVolumeAttributesClassName:      &testVac,
 		},
 		{
-			name:             "modify volume success",
-			pvc:              createTestPVC(pvcName, targetVac /*vacName*/, testVac /*curVacName*/, testVac /*targetVacName*/),
-			pv:               basePV,
-			vacExists:        true,
-			expectModifyCall: true,
-			expectedModifyVolumeStatus: &v1.ModifyVolumeStatus{
-				TargetVolumeAttributesClassName: targetVac,
-				Status:                          "",
-			},
+			name:                                     "modify volume success",
+			pvc:                                      createTestPVC(pvcName, targetVac /*vacName*/, testVac /*curVacName*/, testVac /*targetVacName*/),
+			pv:                                       basePV,
+			vacExists:                                true,
+			expectModifyCall:                         true,
+			expectedModifyVolumeStatus:               nil,
 			expectedCurrentVolumeAttributesClassName: &targetVac,
 			expectedPVVolumeAttributesClassName:      &targetVac,
 		},
@@ -90,7 +87,7 @@ func TestModify(t *testing.T) {
 		test := tests[i]
 		t.Run(test.name, func(t *testing.T) {
 			// Setup
-			defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)()
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)
 			client := csi.NewMockClient("foo", true, true, true, true, true)
 			driverName, _ := client.GetDriverName(context.TODO())
 
@@ -106,7 +103,7 @@ func TestModify(t *testing.T) {
 			kubeClient, informerFactory := fakeK8s(initialObjects)
 			pvInformer := informerFactory.Core().V1().PersistentVolumes()
 			pvcInformer := informerFactory.Core().V1().PersistentVolumeClaims()
-			vacInformer := informerFactory.Storage().V1alpha1().VolumeAttributesClasses()
+			vacInformer := informerFactory.Storage().V1beta1().VolumeAttributesClasses()
 
 			csiModifier, err := modifier.NewModifierFromClient(client, 15*time.Second, kubeClient, informerFactory, driverName)
 			if err != nil {
@@ -128,7 +125,7 @@ func TestModify(t *testing.T) {
 					pvInformer.Informer().GetStore().Add(obj)
 				case *v1.PersistentVolumeClaim:
 					pvcInformer.Informer().GetStore().Add(obj)
-				case *storagev1alpha1.VolumeAttributesClass:
+				case *storagev1beta1.VolumeAttributesClass:
 					vacInformer.Informer().GetStore().Add(obj)
 				default:
 					t.Fatalf("Test %s: Unknown initalObject type: %+v", test.name, obj)

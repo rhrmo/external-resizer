@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	v1 "k8s.io/api/core/v1"
-	storagev1alpha1 "k8s.io/api/storage/v1alpha1"
+	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,7 +101,7 @@ func TestMarkControllerModifyVolumeStatus(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)()
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)
 			client := csi.NewMockClient("foo", true, true, true, true, true)
 			driverName, _ := client.GetDriverName(context.TODO())
 
@@ -161,7 +161,7 @@ func TestUpdateConditionBasedOnError(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)()
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)
 			client := csi.NewMockClient("foo", true, true, true, true, true)
 			driverName, _ := client.GetDriverName(context.TODO())
 
@@ -201,6 +201,7 @@ func TestMarkControllerModifyVolumeCompleted(t *testing.T) {
 	expectedPV := basePV.DeepCopy()
 	expectedPV.Spec.VolumeAttributesClassName = &targetVac
 	expectedPVC := basePVC.WithCurrentVolumeAttributesClassName(targetVac).Get()
+	expectedPVC.Status.ModifyVolumeStatus = nil
 
 	tests := []struct {
 		name        string
@@ -214,7 +215,7 @@ func TestMarkControllerModifyVolumeCompleted(t *testing.T) {
 			name:        "update modify volume status to completed",
 			pvc:         basePVC.Get(),
 			pv:          basePV,
-			expectedPVC: basePVC.WithCurrentVolumeAttributesClassName(targetVac).Get(),
+			expectedPVC: expectedPVC,
 			expectedPV:  expectedPV,
 		},
 		{
@@ -229,7 +230,7 @@ func TestMarkControllerModifyVolumeCompleted(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)()
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)
 			client := csi.NewMockClient("foo", true, true, true, true, true)
 			driverName, _ := client.GetDriverName(context.TODO())
 
@@ -291,7 +292,7 @@ func TestRemovePVCFromModifyVolumeUncertainCache(t *testing.T) {
 	for _, test := range tests {
 		tc := test
 		t.Run(tc.name, func(t *testing.T) {
-			defer featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)()
+			featuregatetesting.SetFeatureGateDuringTest(t, utilfeature.DefaultFeatureGate, features.VolumeAttributesClass, true)
 			client := csi.NewMockClient("foo", true, true, true, true, true)
 			driverName, _ := client.GetDriverName(context.TODO())
 
@@ -303,7 +304,7 @@ func TestRemovePVCFromModifyVolumeUncertainCache(t *testing.T) {
 			pvInformer := informerFactory.Core().V1().PersistentVolumes()
 			pvcInformer := informerFactory.Core().V1().PersistentVolumeClaims()
 			podInformer := informerFactory.Core().V1().Pods()
-			vacInformer := informerFactory.Storage().V1alpha1().VolumeAttributesClasses()
+			vacInformer := informerFactory.Storage().V1beta1().VolumeAttributesClasses()
 
 			csiModifier, err := modifier.NewModifierFromClient(client, 15*time.Second, kubeClient, informerFactory, driverName)
 			if err != nil {
@@ -334,7 +335,7 @@ func TestRemovePVCFromModifyVolumeUncertainCache(t *testing.T) {
 					pvcInformer.Informer().GetStore().Add(obj)
 				case *v1.Pod:
 					podInformer.Informer().GetStore().Add(obj)
-				case *storagev1alpha1.VolumeAttributesClass:
+				case *storagev1beta1.VolumeAttributesClass:
 					vacInformer.Informer().GetStore().Add(obj)
 				default:
 					t.Fatalf("Test %s: Unknown initalObject type: %+v", test.name, obj)
